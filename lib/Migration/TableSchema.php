@@ -29,43 +29,31 @@ use OCP\DB\Types;
  */
 
 abstract class TableSchema {
+	public const FK_PARENT_TABLE = Poll::TABLE;
 
-	/**
-	 * define all foreign key indices
-	 * Parentable => [Childable => ['constraintColumn' => 'columnName']]
-	 */
-	public const FK_INDICES = [
-		Poll::TABLE => [
-			Comment::TABLE => ['constraintColumn' => 'poll_id'],
-			Log::TABLE => ['constraintColumn' => 'poll_id'],
-			Subscription::TABLE => ['constraintColumn' => 'poll_id'],
-			Option::TABLE => ['constraintColumn' => 'poll_id'],
-			Vote::TABLE => ['constraintColumn' => 'poll_id'],
-			Watch::TABLE => ['constraintColumn' => 'poll_id'],
-			PollGroup::RELATION_TABLE => ['constraintColumn' => 'poll_id'],
-		],
-		PollGroup::TABLE => [
-			PollGroup::RELATION_TABLE => ['constraintColumn' => 'group_id'],
-		],
+	public const FK_CHILD_TABLES = [
+		Comment::TABLE,
+		Log::TABLE,
+		Subscription::TABLE,
+		Option::TABLE,
+		Share::TABLE,
+		Vote::TABLE,
 	];
 
-	/**
-	 * define useful common indices, which are not unique
-	 * table => ['name' => 'indexName', 'unique' => false, 'columns' => ['column1', 'column2']]
-	 */
+	public const FK_OTHER_TABLES = [
+		Watch::TABLE,
+		Preferences::TABLE,
+	];
+
 	public const COMMON_INDICES = [
 		'polls_polls_owners_non_deleted' => ['table' => Poll::TABLE, 'name' => 'polls_polls_owners_non_deleted', 'unique' => false, 'columns' => ['owner', 'deleted']],
 	];
 
-	/**
-	 * define unique indices, which are not primary keys
-	 * table => ['name' => 'indexName', 'unique' => true, 'columns' => ['column1', 'column2']]
-	 */
 	public const UNIQUE_INDICES = [
 		Option::TABLE => ['name' => 'UNIQ_options', 'unique' => true, 'columns' => ['poll_id', 'poll_option_hash', 'timestamp']],
 		Log::TABLE => ['name' => 'UNIQ_unprocessed', 'unique' => true, 'columns' => ['processed', 'poll_id', 'user_id', 'message_id']],
 		Subscription::TABLE => ['name' => 'UNIQ_subscription', 'unique' => true, 'columns' => ['poll_id', 'user_id']],
-		Share::TABLE => ['name' => 'UNIQ_shares', 'unique' => true, 'columns' => ['poll_id', 'group_id', 'user_id']],
+		Share::TABLE => ['name' => 'UNIQ_shares', 'unique' => true, 'columns' => ['poll_id', 'user_id']],
 		Vote::TABLE => ['name' => 'UNIQ_votes', 'unique' => true, 'columns' => ['poll_id', 'user_id', 'vote_option_hash']],
 		Preferences::TABLE => ['name' => 'UNIQ_preferences', 'unique' => true, 'columns' => ['user_id']],
 		Watch::TABLE => ['name' => 'UNIQ_watch', 'unique' => true, 'columns' => ['poll_id', 'table', 'session_id']],
@@ -154,7 +142,6 @@ abstract class TableSchema {
 		],
 		Log::TABLE => [
 			'message', // dropped in 1.07, orphaned
-			// 'processed', // dropped in 8.1, orphaned
 		],
 	];
 
@@ -162,21 +149,22 @@ abstract class TableSchema {
 	 * define table structure
 	 *
 	 * IMPORTANT: After adding or deletion check queries in ShareMapper
+	 *
 	 */
 	public const TABLES = [
 		PollGroup::TABLE => [
 			'id' => ['type' => Types::BIGINT, 'options' => ['autoincrement' => true, 'notnull' => true, 'length' => 20]],
 			'created' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => 0, 'length' => 20]],
 			'deleted' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => 0, 'length' => 20]],
-			'title' => ['type' => Types::STRING, 'options' => ['notnull' => true, 'default' => '', 'length' => 128]],
-			'owner' => ['type' => Types::STRING, 'options' => ['notnull' => true, 'default' => '', 'length' => 256]],
 			'description' => ['type' => Types::TEXT, 'options' => ['notnull' => false, 'default' => null, 'length' => 65535]],
-			'title_ext' => ['type' => Types::STRING, 'options' => ['notnull' => false, 'default' => null, 'length' => 128]],
+			'owner' => ['type' => Types::STRING, 'options' => ['notnull' => false, 'default' => null, 'length' => 256]],
+			'title' => ['type' => Types::STRING, 'options' => ['notnull' => true, 'default' => '', 'length' => 128]],
+			'title_ext' => ['type' => Types::STRING, 'options' => ['notnull' => true, 'default' => '', 'length' => 128]],
 		],
 		PollGroup::RELATION_TABLE => [
 			'id' => ['type' => Types::BIGINT, 'options' => ['autoincrement' => true, 'notnull' => true, 'length' => 20]],
-			'poll_id' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => null, 'length' => 20]],
-			'group_id' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => null, 'length' => 20]],
+			'poll_id' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => 0, 'length' => 20]],
+			'group_id' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => 0, 'length' => 20]],
 		],
 		Poll::TABLE => [
 			'id' => ['type' => Types::BIGINT, 'options' => ['autoincrement' => true, 'notnull' => true, 'length' => 20]],
@@ -190,6 +178,7 @@ abstract class TableSchema {
 			'access' => ['type' => Types::STRING, 'options' => ['notnull' => true, 'default' => 'private', 'length' => 1024]],
 			'anonymous' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => 0, 'length' => 20]],
 			'allow_maybe' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => 1, 'length' => 20]],
+			'chosen_rank' => ['type' => Types::LONGTEXT, 'options' => ['notnull' => true, 'default' => 1, 'length' => 200]],
 			'allow_proposals' => ['type' => Types::STRING, 'options' => ['notnull' => true, 'default' => 'disallow', 'length' => 64]],
 			'proposals_expire' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => 0, 'length' => 20]],
 			'vote_limit' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => 0, 'length' => 20]],
@@ -238,8 +227,7 @@ abstract class TableSchema {
 		],
 		Share::TABLE => [
 			'id' => ['type' => Types::BIGINT, 'options' => ['autoincrement' => true, 'notnull' => true, 'length' => 20]],
-			'poll_id' => ['type' => Types::BIGINT, 'options' => ['notnull' => false, 'default' => null, 'length' => 20]],
-			'group_id' => ['type' => Types::BIGINT, 'options' => ['notnull' => false, 'default' => null, 'length' => 20]],
+			'poll_id' => ['type' => Types::BIGINT, 'options' => ['notnull' => true, 'default' => 0, 'length' => 20]],
 			'token' => ['type' => Types::STRING, 'options' => ['notnull' => true, 'default' => '', 'length' => 64]],
 			'type' => ['type' => Types::STRING, 'options' => ['notnull' => true, 'default' => '', 'length' => 64]],
 			'label' => ['type' => Types::STRING, 'options' => ['notnull' => false, 'default' => '', 'length' => 256]],

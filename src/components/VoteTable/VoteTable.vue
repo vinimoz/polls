@@ -4,7 +4,7 @@
 -->
 
 <script setup lang="ts">
-import { n, t } from '@nextcloud/l10n'
+import { t } from '@nextcloud/l10n'
 
 import { PollType, usePollStore } from '../../stores/poll.ts'
 import { useOptionsStore } from '../../stores/options.ts'
@@ -23,8 +23,6 @@ import { usePreferencesStore, ViewMode } from '../../stores/preferences.ts'
 import SortOptionIcon from 'vue-material-design-icons/SortBoolAscendingVariant.vue'
 import VoteItem from './VoteItem.vue'
 import VoteParticipant from './VoteParticipant.vue'
-import IntersectionObserver from '../Base/modules/IntersectionObserver.vue'
-import { showError } from '@nextcloud/dialogs'
 
 const pollStore = usePollStore()
 const optionsStore = useOptionsStore()
@@ -33,7 +31,7 @@ const preferencesStore = usePreferencesStore()
 
 const tableStyle = computed(() => ({
 	'--participants-count': `${pollStore.safeParticipants.length}`,
-	'--options-count': `${optionsStore.options.length}`,
+	'--options-count': `${optionsStore.list.length}`,
 }))
 
 const showCalendarPeek = computed(
@@ -42,17 +40,6 @@ const showCalendarPeek = computed(
 		&& getCurrentUser()
 		&& preferencesStore.user.calendarPeek,
 )
-
-/**
- *
- */
-async function loadMore() {
-	try {
-		votesStore.addChunk()
-	} catch {
-		showError(t('polls', 'Error loading more participants'))
-	}
-}
 </script>
 
 <template>
@@ -62,10 +49,7 @@ async function loadMore() {
 		:class="pollStore.viewMode"
 		class="vote-table"
 		:style="tableStyle">
-		<div
-			v-if="pollStore.viewMode === ViewMode.TableView"
-			key="grid-info"
-			class="grid-info">
+		<div v-if="pollStore.viewMode === ViewMode.TableView" class="grid-info">
 			<NcButton
 				v-show="votesStore.sortByOption > 0"
 				class="sort-indicator"
@@ -80,7 +64,6 @@ async function loadMore() {
 
 		<div
 			v-if="pollStore.viewMode === ViewMode.TableView"
-			key="option-spacer"
 			class="option-spacer" />
 		<div v-if="pollStore.permissions.seeResults" class="counter-spacer" />
 
@@ -129,41 +112,10 @@ async function loadMore() {
 					:option="option" />
 			</div>
 		</template>
-		<div
-			v-if="votesStore.countHiddenParticipants > 0"
-			class="observer-container">
-			<IntersectionObserver
-				key="observer"
-				class="observer_section"
-				@visible="loadMore">
-				<div class="clickable_load_more" @click="loadMore">
-					{{
-						n(
-							'polls',
-							'%n participant is hidden. Click here to load more',
-							'%n participants are hidden. Click here to load more',
-							votesStore.countHiddenParticipants,
-						)
-					}}
-				</div>
-			</IntersectionObserver>
-		</div>
 	</TransitionGroup>
 </template>
 
 <style lang="scss">
-.observer-container {
-	grid-column: 2 / -1;
-	grid-row: 999;
-	display: flex;
-	justify-content: flex-start;
-}
-
-.observer_section {
-	position: sticky;
-	left: 70px;
-}
-
 .vote-table {
 	display: grid;
 	grid-template-columns: max-content repeat(
@@ -177,8 +129,10 @@ async function loadMore() {
 	overflow: scroll;
 
 	.vote-cell {
-		padding: 0.4rem;
-		display: flex;
+		  display: grid;
+  		place-items: center;    /* Centre tout le contenu */
+  		grid-template-columns: 1fr;
+  		width: 100%;
 	}
 
 	.participant {
@@ -262,7 +216,6 @@ async function loadMore() {
 		.option-item {
 			grid-row: 2;
 			position: sticky;
-			opacity: 0.85;
 			top: 0;
 			z-index: 2;
 			background-color: var(--color-main-background);
@@ -325,6 +278,39 @@ async function loadMore() {
 			grid-column: 2;
 			flex-direction: column;
 		}
+		.vote-cell-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+}
+
+.vote-select {
+  width: 100%;
+  max-width: 120px;
+  min-width: 80px;
+  margin: 0 auto;
+  padding: 8px 12px;
+  text-align: center;
+  text-align-last: center; /* Centrage pour Firefox */
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-main-background);
+  cursor: pointer;
+  appearance: none;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-primary-light);
+  }
+}
 
 		.vote-cell {
 			grid-column: 3;

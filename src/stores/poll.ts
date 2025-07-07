@@ -16,14 +16,7 @@ import { emit } from '@nextcloud/event-bus'
 
 import { Logger } from '../helpers/index.ts'
 import { PublicAPI, PollsAPI } from '../Api/index.ts'
-import {
-	Chunking,
-	createDefault,
-	Event,
-	StatusResults,
-	User,
-	UserType,
-} from '../Types/index.ts'
+import { createDefault, Event, User, UserType } from '../Types/index.ts'
 
 import { usePreferencesStore, ViewMode } from './preferences.ts'
 import { useVotesStore, Answer } from './votes.ts'
@@ -35,9 +28,11 @@ import { useSharesStore } from './shares.ts'
 import { useCommentsStore } from './comments.ts'
 import { AxiosError } from '@nextcloud/axios'
 
+
 export enum PollType {
 	Text = 'textPoll',
 	Date = 'datePoll',
+	Generic = 'genericPoll',
 }
 
 type PollTypesType = {
@@ -47,6 +42,9 @@ type PollTypesType = {
 export const pollTypes: Record<PollType, PollTypesType> = {
 	[PollType.Text]: {
 		name: t('polls', 'Text poll'),
+	},
+	[PollType.Generic]: {
+		name: t('polls', 'Generic poll'),
 	},
 	[PollType.Date]: {
 		name: t('polls', 'Date poll'),
@@ -80,15 +78,11 @@ export enum SortParticipants {
 	Unordered = 'unordered',
 }
 
-type Meta = {
-	chunking: Chunking
-	status: StatusResults
-}
-
 export type PollConfiguration = {
 	access: AccessType
 	allowComment: boolean
 	allowMaybe: boolean
+	chosenRank: string
 	allowProposals: AllowProposals
 	anonymous: boolean
 	autoReminder: boolean
@@ -174,12 +168,13 @@ export type Poll = {
 	permissions: PollPermissions
 	revealParticipants: boolean
 	sortParticipants: SortParticipants
-	meta: Meta
 }
 
 const markedPrefix = {
 	prefix: 'desc-',
 }
+
+const DEFAULT_CHOSEN_RANK = ['1', '2', '3'] ;
 
 export const usePollStore = defineStore('poll', {
 	state: (): Poll => ({
@@ -189,10 +184,10 @@ export const usePollStore = defineStore('poll', {
 		descriptionSafe: '',
 		configuration: {
 			title: '',
-			description: '',
 			access: AccessType.Private,
 			allowComment: false,
 			allowMaybe: false,
+			chosenRank: JSON.stringify(DEFAULT_CHOSEN_RANK),
 			allowProposals: AllowProposals.Disallow,
 			anonymous: false,
 			autoReminder: false,
@@ -263,19 +258,27 @@ export const usePollStore = defineStore('poll', {
 		},
 		revealParticipants: false,
 		sortParticipants: SortParticipants.Alphabetical,
-		meta: {
-			chunking: {
-				size: 0,
-				loaded: 0,
-			},
-			status: StatusResults.Loaded,
-		},
 	}),
 
 	getters: {
+
+	getChosenRank(): string[] {
+		try {
+ 		  const parsed = JSON.parse(this.configuration.chosenRank || '[]')
+    		  return Array.isArray(parsed) ? parsed : []
+  		} catch {
+      			return DEFAULT_CHOSEN_RANK;
+    		}
+	},
+
+
 		viewMode(state): ViewMode {
 			const preferencesStore = usePreferencesStore()
 			if (state.type === PollType.Text) {
+				return preferencesStore.viewTextPoll
+			}
+
+			if (state.type === PollType.Generic) {
 				return preferencesStore.viewTextPoll
 			}
 
@@ -296,11 +299,12 @@ export const usePollStore = defineStore('poll', {
 		safeParticipants(): User[] {
 			const sessionStore = useSessionStore()
 			const votesStore = useVotesStore()
-			if (this.viewMode === ViewMode.ListView) {
+			if (this.getSafeTable || this.viewMode === ViewMode.ListView) {
 				return [sessionStore.currentUser]
 			}
-			return votesStore.getChunkedParticipants
+			return votesStore.sortedParticipants
 		},
+
 
 		getProposalsOptions(): {
 			value: AllowProposals
@@ -373,6 +377,37 @@ export const usePollStore = defineStore('poll', {
 			)
 		},
 
+		getSafeTable(state): boolean {
+			const preferencesStore = usePreferencesStore()
+			return (
+				!state.revealParticipants
+				&& this.countCells > preferencesStore.user.performanceThreshold
+			)
+		},
+
+		// count the number of participants (including current user, if has not voted yet)
+		countParticipants(): number {
+			const votesStore = useVotesStore()
+			return votesStore.sortedParticipants.length
+		},
+
+		countHiddenParticipants(): number {
+			const votesStore = useVotesStore()
+			return (
+				votesStore.sortedParticipants.length - this.safeParticipants.length
+			)
+		},
+
+		// count the number of safe participants (including current user, if has not voted yet)
+		countSafeParticipants(): number {
+			return this.safeParticipants.length
+		},
+
+		countCells(): number {
+			const optionsStore = useOptionsStore()
+			return this.countParticipants * optionsStore.count
+		},
+
 		descriptionMarkDown(): string {
 			marked.use(gfmHeadingId(markedPrefix))
 			return DOMPurify.sanitize(
@@ -382,6 +417,18 @@ export const usePollStore = defineStore('poll', {
 	},
 
 	actions: {
+
+	setChosenRank(ranks: string[]) {
+   		 const validItems = Array.isArray(ranks) 
+        		? ranks.map(item => String(item).trim()) // Correction ici
+              		.filter(item => item !== '')       // Filtre les chaînes vides
+        		: [];
+
+    		  this.configuration.chosenRank = JSON.stringify(validItems.sort());
+
+		},
+		
+		
 		reset(): void {
 			this.$reset()
 		},
@@ -434,12 +481,17 @@ export const usePollStore = defineStore('poll', {
 				}
 
 				this.$patch(response.data.poll)
-				votesStore.votes = response.data.votes
-				optionsStore.options = response.data.options
+				votesStore.list = response.data.votes
+				optionsStore.list = response.data.options
 				sharesStore.shares = response.data.shares
-				commentsStore.comments = response.data.comments
+				commentsStore.list = response.data.comments
 				subscriptionStore.subscribed = response.data.subscribed
 			} catch (error) {
+				 console.error('Full error details:', {
+          			  error,
+            			 config: error.config,
+            			  response: error.response?.data
+        		})
 				if ((error as AxiosError)?.code === 'ERR_CANCELED') {
 					return
 				}
@@ -488,7 +540,6 @@ export const usePollStore = defineStore('poll', {
 
 		write(): void {
 			const pollsStore = usePollsStore()
-
 			const debouncedLoad = this.$debounce(async () => {
 				if (this.configuration.title === '') {
 					showError(t('polls', 'Title must not be empty!'))

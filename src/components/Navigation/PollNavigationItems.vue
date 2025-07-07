@@ -31,7 +31,7 @@ const sessionStore = useSessionStore()
 		:to="{ name: 'vote', params: { id: poll.id } }"
 		:class="{ closed: poll.status.isExpired }">
 		<template #icon>
-			<TextPollIcon v-if="poll.type === PollType.Text" />
+			<TextPollIcon v-if="poll.type===PollType.Text || poll.type===PollType.Generic"/>
 			<DatePollIcon v-else />
 		</template>
 		<template #actions>

@@ -53,27 +53,19 @@ namespace OCA\Polls;
  * }
  *
  * @psalm-type PollsUser = array {
- *  array: string,
- *  categories?: string[],
- *  desc?: string,
+ * 	id: string,
  *  displayName: string,
  *  emailAddress?: string,
- * 	id: string,
- *  user?: string,
- *  isAdmin: boolean,
- *  isGuest: boolean,
  *  isNoUser: boolean,
- *  isUnrestrictedOwner: boolean,
- *  languageCode?: string,
- *  languageCodeIntl?: string,
- *  localeCode?: string,
- *  localeCodeIntl?: string,
- *  organisation?: string,
+ *  type: string,
  *  subName?: string,
  *  subtitle?: string,
+ *  desc?: string,
+ *  organisation?: string,
+ *  languageCode?: string,
+ *  localeCode?: string,
  *  timeZone?: string,
- *  type: string,
- *  userId: string,
+ *  categories?: string[],
  * }
  *
  * @psalm-type PollsPollConfiguration = array {
@@ -82,6 +74,7 @@ namespace OCA\Polls;
  *  access: string,
  *  allowComment: boolean,
  *  allowMaybe: boolean,
+ *  chosenRank: String,
  *  allowProposals: string,
  *  anonymous: boolean,
  *  autoReminder: boolean,

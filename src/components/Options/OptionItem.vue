@@ -35,7 +35,7 @@ const pollStore = usePollStore()
 
 		<!-- eslint-disable vue/no-v-html -->
 		<div
-			v-if="pollStore.type === PollType.Text"
+				v-if="pollStore.type === PollType.Text || pollStore.type===PollType.Generic"
 			:title="option.text"
 			class="option-item__option--text"
 			v-html="linkifyStr(option.text)" />

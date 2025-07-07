@@ -141,7 +141,13 @@ function changeView(): void {
 				? ViewMode.ListView
 				: ViewMode.TableView,
 		)
-	} else if (pollStore.type === PollType.Text) {
+	} else if (pollStore.type === PollType.Text ) {
+		preferencesStore.setViewTextPoll(
+			pollStore.viewMode === ViewMode.TableView
+				? ViewMode.ListView
+				: ViewMode.TableView,
+		)
+	} else if (pollStore.type === PollType.Generic ) {
 		preferencesStore.setViewTextPoll(
 			pollStore.viewMode === ViewMode.TableView
 				? ViewMode.ListView

@@ -32,7 +32,7 @@ const optionAddDatesModalProps = {
 		</p>
 
 		<OptionsTextAdd
-			v-if="pollStore.type === PollType.Text"
+			v-if="pollStore.type === PollType.Text || pollStore.type === PollType.Generic"
 			:placeholder="t('polls', 'Propose an option')" />
 
 		<template v-if="pollStore.type === PollType.Date" #button>
